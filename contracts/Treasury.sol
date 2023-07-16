@@ -83,21 +83,22 @@ contract Treasury {
 
     function withdrawFunds(address protocolAddress, address stableCoin, uint256 protocolAmount) external {
         require(stableCoin != address(0), "Invalid stablecoin address");
-        require(protocolAmount > 0, "Invalid deposit amount");
-
-        IERC20(protocols[protocolAddress].swapToken).approve(protocolAddress, protocolAmount);
+        require(protocolAmount > 0, "Invalid withdraw amount");
+        require(protocolAmount <= protocols[protocolAddress].amountInvested, "Invalid withdraw amount");
+        
         if (protocols[protocolAddress].swapToken != address(0)) {
-                // Handle if the protocol is a liquidity pool and requires swapping
-                address[] memory path = new address[](2);
-                path[0] = protocols[protocolAddress].swapToken;
-                path[1] = stableCoin;
-                IUniswapRouter(protocolAddress).swapExactTokensForTokens(protocolAmount, 0, path, address(this), block.timestamp);
-                protocols[protocolAddress].amountInvested -= protocolAmount;
-            } else {
-                // Handle if the protocol is a lending/borrowing protocol like Aave
-                IAaveLendingPool(protocolAddress).withdraw(stableCoin, protocolAmount, address(this));
-                protocols[protocolAddress].amountInvested -= protocolAmount;
-            }
+            IERC20(protocols[protocolAddress].swapToken).approve(protocolAddress, protocolAmount);
+            // Handle if the protocol is a liquidity pool and requires swapping
+            address[] memory path = new address[](2);
+            path[0] = protocols[protocolAddress].swapToken;
+            path[1] = stableCoin;
+            IUniswapRouter(protocolAddress).swapExactTokensForTokens(protocolAmount, 0, path, address(this), block.timestamp);
+            protocols[protocolAddress].amountInvested -= protocolAmount;
+        } else {
+            // Handle if the protocol is a lending/borrowing protocol like Aave
+            IAaveLendingPool(protocolAddress).withdraw(stableCoin, protocolAmount, address(this));
+            protocols[protocolAddress].amountInvested -= protocolAmount;
+        }
     }
 
     function calculateAggregateYield() external view returns (uint256) {
